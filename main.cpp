@@ -8,7 +8,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 
 
 /** 地图默认是空闲区域为白色，障碍物为黑色 **/
@@ -3104,7 +3104,7 @@ void UpdateColorMap(std::deque<cv::Scalar>& JetColorMap)
 
 /** 静态路径规划流程 **/
 
-
+/*unit transformation from meter to pixel*/
 int ComputeRobotRadius(const double& meters_per_pix, const double& robot_size_in_meters)
 {
     int robot_radius = int(robot_size_in_meters / meters_per_pix);
@@ -3113,14 +3113,14 @@ int ComputeRobotRadius(const double& meters_per_pix, const double& robot_size_in
 
 cv::Mat1b ReadMap(const std::string& map_file_path)
 {
-    cv::Mat1b original_map = cv::imread(map_file_path, CV_8U);
+    cv::Mat1b original_map = cv::imread(map_file_path, CV_8U); //CV_8U: 1，表示载入三通道的彩色图像；-1，imread按解码得到的方式读入图像；0，imread按单通道的方式读入图像，即灰白图像。
     return original_map;
 }
 
 cv::Mat1b PreprocessMap(const cv::Mat1b& original_map)
 {
     cv::Mat1b map = original_map.clone();
-    cv::threshold(map, map, 128, 255, cv::THRESH_BINARY);
+    cv::threshold(map, map, 128, 255, cv::THRESH_BINARY); //binarization 二值化
     return map;
 }
 
@@ -4944,10 +4944,10 @@ void StaticPathPlanningExample1()
     double meters_per_pix = 0.02;
     double robot_size_in_meters = 0.15;
 
-    int robot_radius = ComputeRobotRadius(meters_per_pix, robot_size_in_meters);
+    int robot_radius = ComputeRobotRadius(meters_per_pix, robot_size_in_meters); //Unit: pixel
 
-    cv::Mat1b map = ReadMap("../map.png");
-    map = PreprocessMap(map);
+    cv::Mat1b map = ReadMap("./map.png"); // "./"means the pic must be in the same folder as cpp file, only one dot before "/"
+    map = PreprocessMap(map); //binarization
 
     std::vector<std::vector<cv::Point>> obstacle_contours;
     std::vector<std::vector<cv::Point>> wall_contours;
@@ -4975,7 +4975,7 @@ void StaticPathPlanningExample2()
 {
     int robot_radius = 5;
 
-    cv::Mat1b map = ReadMap("../complicate_map.png");
+    cv::Mat1b map = ReadMap("./complicate_map.png");
     map = PreprocessMap(map);
 
     std::vector<std::vector<cv::Point>> wall_contours;
