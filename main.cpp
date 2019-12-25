@@ -83,7 +83,7 @@ typedef std::vector<Point2D> Polygon;
 typedef std::vector<Polygon> PolygonList;
 typedef std::deque<Point2D> Edge;
 
-class Event
+class Event   //vertices in the graph including  that in walls and obstacles
 {
 public:
     Event(int obstacle_idx, int x_pos, int y_pos, EventType type=UNALLOCATED)
@@ -153,7 +153,10 @@ bool operator!=(const Point2D& p1, const Point2D& p2)
 
 
 int WrappedIndex(int index, int list_length)
-{
+{ /*if index<list_length 
+   *    wrapped_idx=index
+   *else
+   *    wrapped_idx=list_length*/
     int wrapped_index = (index%list_length+list_length)%list_length;
     return wrapped_index;
 }
@@ -212,7 +215,7 @@ std::deque<CellNode> GetVisittingPath(std::vector<CellNode>& cell_graph, int fir
 {
     std::deque<CellNode> visitting_path;
 
-    if(cell_graph.size()==1)
+    if(cell_graph.size()==1)  //中间没有障碍物，只有一个cell
     {
         visitting_path.emplace_back(cell_graph.front());
     }
@@ -226,6 +229,7 @@ std::deque<CellNode> GetVisittingPath(std::vector<CellNode>& cell_graph, int fir
     return visitting_path;
 }
 
+/*拿到当前cell的四个顶点*/
 std::vector<Point2D> ComputeCellCornerPoints(const CellNode& cell)
 {
 
@@ -240,6 +244,7 @@ std::vector<Point2D> ComputeCellCornerPoints(const CellNode& cell)
     return corner_points;
 }
 
+/*找到输入点对应的cell*/
 std::vector<int> DetermineCellIndex(std::vector<CellNode>& cell_graph, const Point2D& point)
 {
     std::vector<int> cell_index;
@@ -573,7 +578,7 @@ std::deque<Point2D> GetBoustrophedonPath(std::vector<CellNode>& cell_graph, Cell
                             }
                             else
                             {
-                                path.emplace_back(ceiling[i-j]);
+                                path.emplace_back(ceiling[i-j]);  //从右往左构造路径
                             }
                         }
                     }
@@ -900,7 +905,7 @@ void AllocateObstacleEventType(const cv::Mat& map, std::vector<Event>& event_lis
     // determine in and out and middle
     for(int i = 0; i < N; i++)
     {
-        if(event_list[i].x < event_list[((i-1)%N+N)%N].x && event_list[i].x < event_list[((i+1)%N+N)%N].x)
+        if(event_list[i].x < event_list[((i-1)%N+N)%N].x && event_list[i].x < event_list[((i+1)%N+N)%N].x)  //当前点比相邻的两个点都更靠左，是个左凸点，触发IN event
         {
             event_list[i].event_type = IN;
             in_out_index_list.emplace_back(i);
@@ -967,7 +972,7 @@ void AllocateObstacleEventType(const cv::Mat& map, std::vector<Event>& event_lis
         }
 
 
-        if(event_list[i].x > event_list[((i-1)%N+N)%N].x && event_list[i].x > event_list[((i+1)%N+N)%N].x)
+        if(event_list[i].x > event_list[((i-1)%N+N)%N].x && event_list[i].x > event_list[((i+1)%N+N)%N].x) //当前点比相邻的两个点都更靠右，是个右凸点，触发OUT event
         {
             event_list[i].event_type = OUT;
             in_out_index_list.emplace_back(i);
@@ -1036,12 +1041,12 @@ void AllocateObstacleEventType(const cv::Mat& map, std::vector<Event>& event_lis
     Point2D neighbor_point;
     int temp_index;
 
-    for(auto in_out_index : in_out_index_list)
+    for(auto in_out_index : in_out_index_list) //在上面分类的基础上进一步细分
     {
         if(event_list[in_out_index].event_type == OUT)
         {
             neighbor_point = Point2D(event_list[in_out_index].x+1, event_list[in_out_index].y);
-            if(map.at<cv::Vec3b>(neighbor_point.y, neighbor_point.x) == cv::Vec3b(0,0,0))
+            if(map.at<cv::Vec3b>(neighbor_point.y, neighbor_point.x) == cv::Vec3b(0,0,0))  //(0,0,0)表示黑色, OUT点右侧为黑色点（墙），以下OUT类均为同一个意思
             {
                 event_list[in_out_index].event_type = INNER_OUT;
             }
@@ -1066,10 +1071,10 @@ void AllocateObstacleEventType(const cv::Mat& map, std::vector<Event>& event_lis
 
         }
 
-        if(event_list[in_out_index].event_type == IN)
+        if(event_list[in_out_index].event_type == IN) 
         {
             neighbor_point = Point2D(event_list[in_out_index].x-1, event_list[in_out_index].y);
-            if(map.at<cv::Vec3b>(neighbor_point.y, neighbor_point.x) == cv::Vec3b(0,0,0))
+            if(map.at<cv::Vec3b>(neighbor_point.y, neighbor_point.x) == cv::Vec3b(0,0,0))   //IN点左侧紧邻黑色点
             {
                 event_list[in_out_index].event_type = INNER_IN;
             }
@@ -1100,6 +1105,7 @@ void AllocateObstacleEventType(const cv::Mat& map, std::vector<Event>& event_lis
 
     for(int i = 0; i < in_out_index_list.size(); i++)
     {
+        //couter clockwise mark the floor
         if(
                 (event_list[in_out_index_list[0]].event_type==OUT
                  ||event_list[in_out_index_list[0]].event_type==OUT_TOP
@@ -1147,7 +1153,7 @@ void AllocateObstacleEventType(const cv::Mat& map, std::vector<Event>& event_lis
                 }
             }
         }
-
+        //conter clockwise mark the ceiling
         if(
                 (event_list[in_out_index_list[0]].event_type==IN
                  ||event_list[in_out_index_list[0]].event_type==IN_TOP
@@ -1269,10 +1275,15 @@ void AllocateWallEventType(const cv::Mat& map, std::vector<Event>& event_list)
 
     // determine in and out and middle
     for(int i = 0; i < N; i++)
-    {
+    {   /* (i%N + N)%N == result
+         * if i>=N   then result = i-N
+         * if 0<=i<N then result = i
+         * if -N<i<0 then result = N+i
+         * if i<=-N  then result = 2N-abs(i) 
+        */
         if(event_list[i].x < event_list[((i-1)%N+N)%N].x && event_list[i].x < event_list[((i+1)%N+N)%N].x)
         {
-            event_list[i].event_type = IN_EX;
+            event_list[i].event_type = IN_EX;  //加EX后缀指出wall相关的event
             in_out_index_list.emplace_back(i);
         }
         if(event_list[i].x < event_list[((i-1)%N+N)%N].x && event_list[i].x == event_list[((i+1)%N+N)%N].x && event_list[i].y < event_list[((i+1)%N+N)%N].y)
@@ -1410,7 +1421,7 @@ void AllocateWallEventType(const cv::Mat& map, std::vector<Event>& event_list)
         if(event_list[in_out_index].event_type == OUT_EX)
         {
             neighbor_point = Point2D(event_list[in_out_index].x+1, event_list[in_out_index].y);
-            if(map.at<cv::Vec3b>(neighbor_point.y, neighbor_point.x) == cv::Vec3b(255,255,255) && neighbor_point.x < map.cols)
+            if(map.at<cv::Vec3b>(neighbor_point.y, neighbor_point.x) == cv::Vec3b(255,255,255) && neighbor_point.x < map.cols) //(255,255,255) is black color
             {
                 event_list[in_out_index].event_type = INNER_OUT_EX;
             }
@@ -1491,7 +1502,7 @@ void AllocateWallEventType(const cv::Mat& map, std::vector<Event>& event_list)
                 {
                     if(event_list[j].event_type != MIDDLE)
                     {
-                        event_list[j].event_type = CEILING;
+                        event_list[j].event_type = CEILING; // CEILING always means the top edge of a cell; so the ceiling of wall is different with that of the obstacle
                         ceiling_floor_index_list.emplace_back(j);
                     }
                 }
@@ -1564,7 +1575,7 @@ void AllocateWallEventType(const cv::Mat& map, std::vector<Event>& event_list)
                 }
             }
         }
-
+        //将in_out_index_list[0]放到最后，把[1]变成新的[0]
         temp_index = in_out_index_list.front();
         in_out_index_list.pop_front();
         in_out_index_list.emplace_back(temp_index);
@@ -1649,11 +1660,11 @@ std::vector<Event> GenerateObstacleEventList(const cv::Mat& map, const PolygonLi
 
 std::vector<Event> GenerateWallEventList(const cv::Mat& map, const Polygon& external_contour)
 {
-    std::vector<Event> event_list;
+    std::vector<Event> event_list; //每个元素都包含一个像素点坐标和索引
 
     event_list = InitializeEventList(external_contour, INT_MAX);
     AllocateWallEventType(map, event_list);
-    std::sort(event_list.begin(), event_list.end());
+    std::sort(event_list.begin(), event_list.end()); //在没有制定排序方法的情况下，默认先按照第一个元素排，第一个相同的按照第二个排，正好对应xy坐标
 
     return event_list;
 }
@@ -1661,19 +1672,19 @@ std::vector<Event> GenerateWallEventList(const cv::Mat& map, const Polygon& exte
 std::deque<std::deque<Event>> SliceListGenerator(const std::vector<Event>& wall_event_list, const std::vector<Event>& obstacle_event_list)
 {
     std::vector<Event> event_list;
-    event_list.insert(event_list.end(), obstacle_event_list.begin(), obstacle_event_list.end());
+    event_list.insert(event_list.end(), obstacle_event_list.begin(), obstacle_event_list.end()); //在原有event_list之后加入obstacle list, 相当于追加
     event_list.insert(event_list.end(), wall_event_list.begin(), wall_event_list.end());
-    std::sort(event_list.begin(), event_list.end());
+    std::sort(event_list.begin(), event_list.end()); //所有event首先按X坐标其次是Y坐标排序
 
     std::deque<std::deque<Event>> slice_list;
     std::deque<Event> slice;
-    int x = event_list.front().x;
+    int x = event_list.front().x; //最左侧的点
 
     for(auto event : event_list)
     {
         if(event.x != x)
         {
-            slice_list.emplace_back(slice);
+            slice_list.emplace_back(slice); //把上一轮切片放入切片库，并开始下一轮
 
             x = event.x;
             slice.clear();
@@ -1681,7 +1692,7 @@ std::deque<std::deque<Event>> SliceListGenerator(const std::vector<Event>& wall_
         }
         else
         {
-            slice.emplace_back(event);
+            slice.emplace_back(event); //相同的X坐标，得到一个纵向切片
         }
     }
     slice_list.emplace_back(slice);
@@ -1856,6 +1867,7 @@ void ExecuteInnerCloseOperation(std::vector<CellNode>& cell_graph, int curr_cell
     cell_graph[curr_cell_idx].floor.emplace_back(inner_out_bottom);
 }
 
+/*把cell边界画出来*/
 void DrawCells(cv::Mat& map, const CellNode& cell, cv::Scalar color=cv::Scalar(100, 100, 100))
 {
     std::cout<<"cell "<<cell.cellIndex<<": "<<std::endl;
@@ -1911,7 +1923,7 @@ std::deque<Event> FilterSlice(const std::deque<Event>& slice)
     }
     return filtered_slice;
 }
-
+ 
 void ExecuteCellDecomposition(std::vector<CellNode>& cell_graph, std::vector<int>& cell_index_slice, std::vector<int>& original_cell_index_slice, const std::deque<std::deque<Event>>& slice_list)
 {
     int curr_cell_idx = INT_MAX;
@@ -1933,10 +1945,13 @@ void ExecuteCellDecomposition(std::vector<CellNode>& cell_graph, std::vector<int
 
     for(const auto& raw_slice : slice_list)
     {
-        curr_slice = FilterSlice(raw_slice);
+        curr_slice = FilterSlice(raw_slice); //去掉多余的MIDDLE点和UNALLOCATED点
 
-        original_cell_index_slice.assign(cell_index_slice.begin(), cell_index_slice.end());
-
+        original_cell_index_slice.assign(cell_index_slice.begin(), cell_index_slice.end());  //赋值,初值为空
+        
+        /*下面分别从wall，obstacle event以及floor ceiling类型三个方面把每个slice遍历一遍*/
+        //为什么没有INNER_IN_TOP_EX && INNER_OUT_TOP_EX ??
+        //WALL-->>
         for(int j = 0; j < curr_slice.size(); j++)
         {
             if(curr_slice[j].event_type == INNER_IN_EX)
@@ -2316,7 +2331,7 @@ void ExecuteCellDecomposition(std::vector<CellNode>& cell_graph, std::vector<int
 
         }
 
-
+        //Obstacle -->>
         for(int j = 0; j < curr_slice.size(); j++)
         {
             if(curr_slice[j].event_type == IN)
@@ -2632,7 +2647,7 @@ void ExecuteCellDecomposition(std::vector<CellNode>& cell_graph, std::vector<int
             }
 
         }
-
+        //cell -->>
         for(int j = 0; j < curr_slice.size(); j++)
         {
             if(curr_slice[j].event_type == CEILING)
@@ -2710,7 +2725,7 @@ std::deque<Point2D> WalkInsideCell(CellNode cell, const Point2D& start, const Po
     int end_floor_index_offset = end.x - cell.floor.front().x;
     int second_floor_delta_y = end.y - cell.floor[end_floor_index_offset].y;
 
-    if((abs(first_ceiling_delta_y)+abs(second_ceiling_delta_y)) < (abs(first_floor_delta_y)+abs(second_floor_delta_y))) //to ceiling
+    if((abs(first_ceiling_delta_y)+abs(second_ceiling_delta_y)) < (abs(first_floor_delta_y)+abs(second_floor_delta_y))) //go to ceiling
     {
         int first_increment_y = 0;
         if(first_ceiling_delta_y != 0)
@@ -2732,7 +2747,7 @@ std::deque<Point2D> WalkInsideCell(CellNode cell, const Point2D& start, const Po
         for(int i = 0; i < abs(delta_x); i++)
         {
             // 提前转
-            if((cell.ceiling[start_ceiling_index_offset+increment_x*(i+1)].y-cell.ceiling[start_ceiling_index_offset+increment_x*(i)].y>=2)
+            if((cell.ceiling[start_ceiling_index_offset+increment_x*(i+1)].y - cell.ceiling[start_ceiling_index_offset+increment_x*(i)].y >= 2)
                &&(i+1 <= abs(delta_x))
                &&(i <= abs(delta_x)))
             {
@@ -2744,7 +2759,7 @@ std::deque<Point2D> WalkInsideCell(CellNode cell, const Point2D& start, const Po
                 }
             }
             // 滞后转
-            else if((cell.ceiling[start_ceiling_index_offset+increment_x*(i)].y-cell.ceiling[start_ceiling_index_offset+increment_x*(i+1)].y>=2)
+            else if((cell.ceiling[start_ceiling_index_offset+increment_x*(i)].y - cell.ceiling[start_ceiling_index_offset+increment_x*(i+1)].y >= 2)
                      &&(i<=abs(delta_x))
                      &&(i+1<=abs(delta_x)))
             {
@@ -2845,6 +2860,7 @@ std::deque<Point2D> WalkInsideCell(CellNode cell, const Point2D& start, const Po
     return inner_path;
 }
 
+/*查找从当前cell终点到下一个cell起点的路径*/
 std::deque<std::deque<Point2D>> FindLinkingPath(const Point2D& curr_exit, Point2D& next_entrance, int& corner_indicator, CellNode curr_cell, const CellNode& next_cell)
 {
     std::deque<std::deque<Point2D>> path;
@@ -3128,26 +3144,26 @@ void ExtractRawContours(const cv::Mat& original_map, std::vector<std::vector<cv:
 {
     cv::Mat map = original_map.clone();
     cv::threshold(map, map, 128, 255, cv::THRESH_BINARY_INV);
-    cv::cvtColor(map, map, cv::COLOR_GRAY2BGR);
+    cv::cvtColor(map, map, cv::COLOR_GRAY2BGR); //多种颜色空间之间的转换, e.g. from RGB to BGR
 
     std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(original_map.clone(), contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    cv::findContours(original_map.clone(), contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE); //retrieves contours from black-n-white image， contours可以有很多个，每个都是一串点集
 
     std::vector<int> wall_cnt_indices(contours.size());
-    std::iota(wall_cnt_indices.begin(), wall_cnt_indices.end(), 0);
+    std::iota(wall_cnt_indices.begin(), wall_cnt_indices.end(), 0); //Fills the range [first, last) with sequentially increasing values, starting with value and repetitively evaluating ++value (zero in this case)
 
-//    std::sort(wall_cnt_indices.begin(), wall_cnt_indices.end(), [&contours](int lhs, int rhs){return contours[lhs].size() > contours[rhs].size();});
-    std::sort(wall_cnt_indices.begin(), wall_cnt_indices.end(), [&contours](int lhs, int rhs){return cv::contourArea(contours[lhs]) > cv::contourArea(contours[rhs]);});
+  //std::sort(wall_cnt_indices.begin(), wall_cnt_indices.end(), [&contours](int lhs, int rhs){return contours[lhs].size() > contours[rhs].size();});
+    std::sort(wall_cnt_indices.begin(), wall_cnt_indices.end(), [&contours](int lhs, int rhs){return cv::contourArea(contours[lhs]) > cv::contourArea(contours[rhs]);}); //sort according to contourarea, then assign to contour
 
     std::vector<cv::Point> raw_wall_contour = contours[wall_cnt_indices.front()];
-    raw_wall_contours = {raw_wall_contour};
+    raw_wall_contours = {raw_wall_contour};  //引用传递
 
     cv::Mat mask = cv::Mat(original_map.size(), original_map.type(), 255);
     cv::fillPoly(mask, raw_wall_contours, 0);
 
     cv::Mat base = original_map.clone();
     base += mask;
-    cv::threshold(base, base, 128, 255, cv::THRESH_BINARY_INV);
+    cv::threshold(base, base, 128, 255, cv::THRESH_BINARY_INV); //对灰度图像进行阈值操作得到二值图像
 
     cv::findContours(base, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
 
@@ -3161,12 +3177,31 @@ void ExtractContours(const cv::Mat& original_map, std::vector<std::vector<cv::Po
     if(robot_radius != 0)
     {
         cv::Mat3b canvas = cv::Mat3b(original_map.size(), CV_8U);
-        canvas.setTo(cv::Scalar(255, 255, 255));
+        canvas.setTo(cv::Scalar(255, 255, 255)); //把矩阵mask中元素不为0的点全部变为value值
 
+        /**************************************************************************
+         * fillPoly(img,ppt,npt,1,Scalar(255,255,255),lineType); 绘制多边形并对其填充
+         * 函数参数：
+         * 1、多边形将被画到img上
+         * 2、多边形的顶点集为ppt
+         * 3、绘制的多边形顶点数目为npt
+         * 4、要绘制的多边形数量为1
+         * 5、多边形的颜色定义为Scarlar(255,255,255)，即RGB的值为白色 (0,0,0)为黑色
+         * ***********************************************************************/
         cv::fillPoly(canvas, wall_contours, cv::Scalar(0, 0, 0));
-        for(const auto& point:wall_contours.front())
+        for(const auto& point:wall_contours.front()) //"const auto&": point is read-only, otherwise "auto&" can be used
         {
-            cv::circle(canvas, point, robot_radius, cv::Scalar(255, 255, 255), -1);
+            /*********************************************************************
+            * cvCircle(CvArr* img, CvPoint center, int radius, CvScalar color, int thickness=1, int lineType=8, int shift=0)
+            * img为源图像指针
+            * center为画圆的圆心坐标
+            * radius为圆的半径
+            * color为设定圆的颜色，规则根据B（蓝）G（绿）R（红）
+            * thickness 如果是正数，表示组成圆的线条的粗细程度。否则，-1表示圆是否被填充
+            * line_type 线条的类型。默认是8
+            * shift 圆心坐标点和半径值的小数点位数
+            **********************************************************************/
+            cv::circle(canvas, point, robot_radius, cv::Scalar(255, 255, 255), -1); //draw a circle
         }
 
         cv::fillPoly(canvas, obstacle_contours, cv::Scalar(255, 255, 255));
@@ -3182,15 +3217,15 @@ void ExtractContours(const cv::Mat& original_map, std::vector<std::vector<cv::Po
         cv::cvtColor(canvas, canvas_, cv::COLOR_BGR2GRAY);
         cv::threshold(canvas_, canvas_, 200, 255, cv::THRESH_BINARY_INV);
 
-        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(robot_radius,robot_radius), cv::Point(-1,-1));
-        cv::morphologyEx(canvas_, canvas_, cv::MORPH_OPEN, kernel);
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(robot_radius,robot_radius), cv::Point(-1,-1)); //返回指定形状和尺寸的结构元素
+        cv::morphologyEx(canvas_, canvas_, cv::MORPH_OPEN, kernel); //进行形态学操作的开运算Opening 先腐蚀再膨胀, 能够排除小团块物体(假设物体较背景明亮)
 
         ExtractRawContours(canvas_, wall_contours, obstacle_contours);
 
 
 
         std::vector<cv::Point> processed_wall_contour;
-        cv::approxPolyDP(cv::Mat(wall_contours.front()), processed_wall_contour, 1, true);
+        cv::approxPolyDP(cv::Mat(wall_contours.front()), processed_wall_contour, 1, true); //把一个连续光滑曲线折线化，对图像轮廓点进行多边形拟合
 
         std::vector<std::vector<cv::Point>> processed_obstacle_contours(obstacle_contours.size());
         for(int i = 0; i < obstacle_contours.size(); i++)
@@ -3234,7 +3269,7 @@ PolygonList ConstructObstacles(const cv::Mat& original_map, const std::vector<st
 }
 
 Polygon ConstructDefaultWall(const cv::Mat& original_map)
-{
+{    /*default_wall_contour点出地图四个角上的点*/
     std::vector<cv::Point> default_wall_contour = {cv::Point(0, 0), cv::Point(0, original_map.rows-1), cv::Point(original_map.cols-1, original_map.rows-1), cv::Point(original_map.cols-1, 0)};
     std::vector<std::vector<cv::Point>>default_wall_contours = {default_wall_contour};
 
@@ -3251,14 +3286,14 @@ Polygon ConstructWall(const cv::Mat& original_map, std::vector<cv::Point>& wall_
     {
         for(int i = 0; i < wall_contour.size()-1; i++)
         {
-            cv::LineIterator line(original_map, wall_contour[i], wall_contour[i+1]);
-            for(int j = 0; j < line.count-1; j++)
+            cv::LineIterator line(original_map, wall_contour[i], wall_contour[i+1]); //轮廓上所有点连线，边缘线段化，LineIterator存储了很多条line直线
+            for(int j = 0; j < line.count-1; j++)  //该条直线上的像素点数line.count
             {
-                wall.emplace_back(Point2D(line.pos().x, line.pos().y));
-                line++;
+                wall.emplace_back(Point2D(line.pos().x, line.pos().y));  //.pos()表示当前像素点；拟合记录所有轮廓上的点
+                line++; //operator++ 移动到下一个像素
             }
         }
-        cv::LineIterator line(original_map, wall_contour.back(), wall_contour.front());
+        cv::LineIterator line(original_map, wall_contour.back(), wall_contour.front()); //封口连线
         for(int i = 0; i < line.count-1; i++)
         {
             wall.emplace_back(Point2D(line.pos().x, line.pos().y));
@@ -3336,8 +3371,8 @@ std::deque<std::deque<Point2D>> StaticPathPlanning(const cv::Mat& map, std::vect
         for(const auto& cell : cell_graph)
         {
             DrawCells(vis_map, cell);
-            cv::imshow("map", vis_map);
-            cv::waitKey(500);
+            cv::imshow("map", vis_map); //Para1:显示图片的窗口名称  Para2:储存图片数据的对象
+            cv::waitKey(500);  //Para Unit: ms 等待按下函数：参数如果写负数或者0，当显示图片后，按下任意键后程序退出。如果参数写为3000就是3秒后程序自动退出。
         }
     }
 
@@ -3471,6 +3506,7 @@ std::deque<Point2D> ReturningPathPlanning(cv::Mat& map, std::vector<CellNode>& c
     return returning_path;
 }
 
+/*将二维deque转换为一维deque，并去除掉重复的点*/
 std::deque<Point2D> FilterTrajectory(const std::deque<std::deque<Point2D>>& raw_trajectory)
 {
     std::deque<Point2D> trajectory;
@@ -3507,7 +3543,7 @@ void VisualizeTrajectory(const cv::Mat& original_map, const std::deque<Point2D>&
     int color_repeated_times = path.size()/colors + 1;
     InitializeColorMap(JetColorMap, color_repeated_times);
 
-    switch (vis_mode)
+    switch (vis_mode)  //区别在于PATH_MODE画点，ROBOT_MODE画圆形
     {
         case PATH_MODE:
             vis_map.at<cv::Vec3b>(path.front().y, path.front().x)=cv::Vec3b(uchar(JetColorMap.front()[0]),uchar(JetColorMap.front()[1]),uchar(JetColorMap.front()[2]));
@@ -4901,6 +4937,7 @@ void CheckPathNodes(const std::deque<std::deque<Point2D>>& path)
     }
 }
 
+/*比较（i-1)和(i), 统计不连续的点和重复的点*/
 void CheckPathConsistency(const std::deque<Point2D>& path)
 {
     int breakpoints = 0;
@@ -4908,7 +4945,7 @@ void CheckPathConsistency(const std::deque<Point2D>& path)
 
     for(int i = 1; i < path.size(); i++)
     {
-        if(std::abs(path[WrappedIndex((i-1),path.size())].x-path[i].x)>1||std::abs(path[WrappedIndex((i-1),path.size())].y-path[i].y)>1)
+        if(std::abs(path[WrappedIndex((i-1),path.size())].x-path[i].x)>1 || std::abs(path[WrappedIndex((i-1),path.size())].y-path[i].y)>1)
         {
             breakpoints++;
             std::cout<<"break points :"<<path[WrappedIndex((i-1),path.size())].x<<", "<<path[WrappedIndex((i-1),path.size())].y
@@ -4947,21 +4984,22 @@ void StaticPathPlanningExample1()
     int robot_radius = ComputeRobotRadius(meters_per_pix, robot_size_in_meters); //Unit: pixel
 
     cv::Mat1b map = ReadMap("./map.png"); // "./"means the pic must be in the same folder as cpp file, only one dot before "/"
+    //cv::Mat1b map = ReadMap("./map_warmart.png"); 
     map = PreprocessMap(map); //binarization
 
     std::vector<std::vector<cv::Point>> obstacle_contours;
     std::vector<std::vector<cv::Point>> wall_contours;
     ExtractContours(map, wall_contours, obstacle_contours, robot_radius);
 
-    Polygon wall = ConstructWall(map, wall_contours.front());
+    Polygon wall = ConstructWall(map, wall_contours.front());  //对第一个提取出的轮廓边界点多边形包围，然后按照像素读取边缘的点
     PolygonList obstacles = ConstructObstacles(map, obstacle_contours);
 
     std::vector<CellNode> cell_graph = ConstructCellGraph(map, wall_contours, obstacle_contours, wall, obstacles);
 
-    Point2D start = Point2D(map.cols/2, map.rows/2);
+    Point2D start = Point2D(map.cols/2, map.rows/2); //从中心开始
     std::deque<std::deque<Point2D>> original_planning_path = StaticPathPlanning(map, cell_graph, start, robot_radius, false, false);
 
-    std::deque<Point2D> path = FilterTrajectory(original_planning_path);
+    std::deque<Point2D> path = FilterTrajectory(original_planning_path); //路径类型转换，去掉重复点
     CheckPathConsistency(path);
 
     VisualizeTrajectory(map, path, robot_radius, PATH_MODE);
